@@ -1,7 +1,7 @@
 {
   "name": "video-shot-prompts-mobile",
   "version": "1.0.0",
-  "description": "Analyze uploaded videos into faithful shot prompts and storyboard previews in ChatGPT and Codex.",
+  "description": "Analyze local and social videos, generate storyboard previews, build slideshow videos, and optionally publish them through Buffer.",
   "author": {
     "name": "Chenhao"
   },
@@ -14,15 +14,16 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Video Shot Prompts",
-    "shortDescription": "Turn videos into shot prompts and previews.",
-    "longDescription": "Analyze an uploaded reference video shot by shot, preserve visual continuity and construction stages, write faithful image or video generation prompts, and create storyboard preview images by default.",
+    "shortDescription": "Analyze videos, create previews, and publish via Buffer.",
+    "longDescription": "Analyze local, Douyin, or TikTok videos shot by shot, preserve visual continuity, generate storyboard previews, build slideshow videos with source audio, and optionally publish finished videos through Buffer using Tencent COS-hosted media.",
     "developerName": "Chenhao",
     "category": "Productivity",
     "capabilities": [],
     "defaultPrompt": [
       "Analyze this uploaded video shot by shot.",
       "Turn this video into generation prompts and previews.",
-      "Compare this image with the matching video shot."
+      "Compare this image with the matching video shot.",
+      "Publish the finished video through Buffer."
     ]
   }
 }

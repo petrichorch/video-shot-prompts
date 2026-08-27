@@ -5,5 +5,12 @@
 *.key
 credentials.json
 secrets.json
+.apiyi-key
+.tikhub-api-key
+.buffer-api-key
+.tencent-cos-secret-id
+.tencent-cos-secret-key
+node_modules/
+buffer-meta.json
 .DS_Store
 

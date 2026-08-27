@@ -1,5 +1,8 @@
 interface:
   display_name: "Video Shot Prompts"
-  short_description: "Turn uploaded videos into shot prompts and storyboard previews"
-  default_prompt: "Analyze this uploaded video shot by shot and create faithful prompts plus preview images."
+  short_description: "从视频提取分镜、生成提示词和预览图"
+  brand_color: "#C47A44"
+  default_prompt: "Use $video-shot-prompts to analyze this video, split it into faithful shots, write detailed prompts, and generate a preview image for a selected shot when requested."
 
+policy:
+  allow_implicit_invocation: true
