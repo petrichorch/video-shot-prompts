@@ -3,7 +3,12 @@
 // Schedule publicly hosted media to connected Buffer channels.
 const fs = require('fs');
 const path = require('path');
+const { EnvHttpProxyAgent, setGlobalDispatcher } = require('undici');
 const { uploadFile } = require('./upload-to-cos');
+
+if (process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy) {
+  setGlobalDispatcher(new EnvHttpProxyAgent());
+}
 
 const args = process.argv.slice(2);
 const skillDir = path.resolve(__dirname, '..');
