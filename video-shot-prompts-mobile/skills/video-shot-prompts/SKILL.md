@@ -1,13 +1,13 @@
 ---
 name: video-shot-prompts
-description: Analyze local, Douyin, or TikTok videos and extract their visual shot structure into detailed image or video generation prompts, then generate a preview image for every shot by default. Use when a user provides a video or Douyin/TikTok share link and asks for storyboard prompts, shot-by-shot descriptions, prompt reconstruction, reference-image comparison, music extraction, a next matching shot, or a generated preview image.
+description: Analyze local, Douyin, or TikTok videos into detailed storyboard prompts and preview images, or create a 6-8 shot wool-felting storyboard from bundled process references when no video is supplied. Use for shot reconstruction, continuity analysis, reference comparison, music extraction, next-shot work, generated previews, and original wool-felting concept storyboards.
 ---
 
 # Video Shot Prompts
 
 ## Overview
 
-Turn a local video into a visually faithful shot list and reusable prompts. Preserve the source video's actual craft stage, camera framing, hand actions, material state, lighting, background, subject identity, capture quality, and aspect ratio. Favor evidence density over decorative wording: a useful prompt records the exact visible state and physical change, not merely the general activity.
+Turn a video into a visually faithful shot list and reusable prompts, or build an original 6-8 shot wool-felting construction sequence from the bundled Devon Rex process study when no source is supplied. Preserve the actual craft stage, camera framing, hand actions, material state, lighting, background, subject identity, capture quality, and aspect ratio. Favor evidence density over decorative wording: a useful prompt records the exact visible state and physical change, not merely the general activity.
 
 ## Persistent asset library
 
@@ -46,6 +46,12 @@ When the user targets Europe or the United States, treat the audience as the pri
 - Treat C2PA and other provenance metadata as part of the asset's authenticity record. Preserve it when present and do not strip or falsify AI-origin information.
 
 ## Workflow
+
+### 0. Route the request
+
+- **Source-driven mode:** When the user supplies a local/uploaded video or Douyin/TikTok link, follow steps 1-10 and keep every shot evidence-based.
+- **Bundled-reference concept mode:** When the user asks for a wool-felting storyboard but supplies no video, read `references/no-input-wool-felting.md`, inspect the bundled keyframes, and create a coherent 6-8 shot concept. Do not invent timestamps or claim that generated stages came from a new source video.
+- If the user supplies neither a source nor a wool-felting concept, ask for a subject or propose one concise default; do not silently force the Devon cat onto an unrelated request.
 
 ### 1. Inspect the source
 
@@ -220,6 +226,8 @@ If the user corrects the stage, accept the correction and re-anchor to the actua
 
 After completing the shot analysis (steps 1-5), generate a preview image for every shot by default—do not stop at prompts alone. Only skip generation if the user explicitly asks for prompts only.
 
+Prefer the native `imagegen`/ImageGen tool whenever it is available. Generate the identity anchor first, then generate each non-final shot with the identity anchor as the reference image and an explicit construction-stage override. Use `scripts/generate_image.py` through APIYi only when native ImageGen is unavailable. The API fallback may incur cost: do not retry or fail over after an ambiguous failure without user confirmation. In bundled-reference concept mode, inspect the bundled frames for craft grammar and capture style, but generate fresh compositions rather than editing or cloning the reference frames.
+
 Use a three-anchor continuity strategy. The goal is to keep the generated sequence consistent and source-realistic without returning near-duplicates of the video frames.
 
 1. **Find the final-product frame first.** Before generating the storyboard previews, locate the clearest finished-subject moment near the end of the source video. Prefer a frame where the final craft/object is fully visible, well lit, and representative of the subject identity. Extract this frame as an internal analysis reference such as `work/final-product-frame.jpg`.
@@ -337,6 +345,8 @@ Negative prompt:
 ```
 
 Default to English generation prompts with Chinese explanations. Match the user's requested prompt style and detail level. Mention the source video's actual aspect ratio and avoid adding text, logos, or watermarks unless explicitly requested.
+
+For bundled-reference concept mode, output exactly 6-8 shots unless the user requests another count. Label them `概念分镜` rather than presenting fabricated source timestamps, and include the construction stage, English prompt, negative prompt, and continuity anchor for every shot.
 
 ## Quality Checks
 

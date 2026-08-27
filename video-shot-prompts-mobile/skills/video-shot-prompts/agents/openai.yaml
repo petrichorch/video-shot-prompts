@@ -1,8 +1,8 @@
 interface:
   display_name: "Video Shot Prompts"
-  short_description: "从视频提取分镜、生成提示词和预览图"
+  short_description: "视频拆分或无输入羊毛毡分镜生成"
   brand_color: "#C47A44"
-  default_prompt: "Use $video-shot-prompts to analyze this video, split it into faithful shots, write detailed prompts, and generate a preview image for a selected shot when requested."
+  default_prompt: "Use $video-shot-prompts to analyze the supplied video into faithful shots, or if no video is supplied, use the bundled wool-felting process references to create 6-8 coherent concept shots; write detailed prompts and generate every preview with native ImageGen when available."
 
 policy:
   allow_implicit_invocation: true

@@ -21,6 +21,11 @@ const apiUrl = process.env.TIKHUB_API_URL
 const proxyUrl = process.env.https_proxy || process.env.HTTPS_PROXY
   || process.env.http_proxy || process.env.HTTP_PROXY
   || 'http://127.0.0.1:7897';
+const mediaHeaders = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124 Safari/537.36',
+  Referer: 'https://www.douyin.com/',
+  Accept: '*/*'
+};
 
 function readSecretFile(fileName) {
   const file = path.join(skillDir, fileName);
@@ -122,6 +127,8 @@ function curlDownload(url, destination) {
   return new Promise((resolve, reject) => {
     execFile('curl', [
       '-sS', '-L', '--fail-with-body', '--max-time', '300', '--proxy', proxyUrl,
+      '-H', `User-Agent: ${mediaHeaders['User-Agent']}`,
+      '-H', `Referer: ${mediaHeaders.Referer}`,
       '--output', destination, url
     ], { maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) return reject(new Error(stderr.trim() || stdout.trim() || error.message));
@@ -134,13 +141,17 @@ async function download(url, destination) {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   let response;
   try {
-    response = await fetch(url, { redirect: 'follow' });
+    response = await fetch(url, { redirect: 'follow', headers: mediaHeaders });
   } catch (directError) {
     console.warn(`Direct video download failed (${directError.message}); retrying once through proxy.`);
     await curlDownload(url, destination);
     return;
   }
-  if (!response.ok) throw new Error(`video download returned HTTP ${response.status}`);
+  if (!response.ok) {
+    console.warn(`Direct video download returned HTTP ${response.status}; retrying once through proxy.`);
+    await curlDownload(url, destination);
+    return;
+  }
   fs.writeFileSync(destination, Buffer.from(await response.arrayBuffer()));
 }
 
@@ -155,12 +166,23 @@ function rejectHtmlDownload(destination) {
 async function main() {
   const requestUrl = `${apiUrl}?share_url=${encodeURIComponent(shareUrl)}`;
   const body = await requestJson(requestUrl);
-  const selected = preferredVideoUrl(body) || [...new Set(collectVideoUrls(body))][0];
-  if (!selected) {
+  const candidates = [...new Set([preferredVideoUrl(body), ...collectVideoUrls(body)].filter(Boolean))];
+  if (!candidates.length) {
     throw new Error(`TiKHub response did not contain a downloadable video URL: ${safeMessage(body)}`);
   }
-  await download(selected, output);
-  rejectHtmlDownload(output);
+  let lastError;
+  for (const candidate of candidates) {
+    try {
+      await download(candidate, output);
+      rejectHtmlDownload(output);
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      fs.rmSync(output, { force: true });
+    }
+  }
+  if (lastError) throw lastError;
   const stat = fs.statSync(output);
   if (!stat.size) throw new Error('Downloaded video is empty');
   console.log(`Downloaded Douyin video to ${output} (${stat.size} bytes)`);
