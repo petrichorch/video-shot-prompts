@@ -1,0 +1,5 @@
+interface:
+  display_name: "Video Shot Prompts"
+  short_description: "Turn uploaded videos into shot prompts and storyboard previews"
+  default_prompt: "Analyze this uploaded video shot by shot and create faithful prompts plus preview images."
+
