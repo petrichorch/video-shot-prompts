@@ -11,7 +11,7 @@ Turn a local video into a visually faithful shot list and reusable prompts. Pres
 
 ## Persistent asset library
 
-Store durable assets outside the per-conversation workspace so they remain available in later tasks. Use `/Users/chenhao/Documents/Codex/media-library` by default, or the absolute path in `VIDEO_ASSET_LIBRARY` when it is set:
+Store durable assets in the absolute path from `VIDEO_ASSET_LIBRARY` when it is set. Otherwise use `$PWD/media-library`, which works in both local and Codex cloud workspaces:
 
 | Asset | Directory |
 | --- | --- |
@@ -22,13 +22,13 @@ Store durable assets outside the per-conversation workspace so they remain avail
 
 Use timestamped, descriptive filenames and never overwrite an existing library asset. The task `work/` directory is only for transient frames, contact sheets, and retries. Save a generated image or finished video to the library as its canonical copy; create a task-local copy only when a tool requires one. Reuse library assets by their absolute paths in later conversations.
 
-Before the first asset write, create any missing library directories with `mkdir -p /Users/chenhao/Documents/Codex/media-library/{source-videos,music,generated-images,generated-videos}`. The download and slideshow scripts create their own parent folders automatically; image-generation outputs require the target `generated-images/` directory to exist.
+Before the first asset write, set `ASSET_LIBRARY="${VIDEO_ASSET_LIBRARY:-$PWD/media-library}"` and create any missing directories with `mkdir -p "$ASSET_LIBRARY"/{source-videos,music,generated-images,generated-videos}`. The download and slideshow scripts create their own parent folders automatically; image-generation outputs require the target `generated-images/` directory to exist.
 
 ## Preflight and configuration discovery
 
 Before analyzing or publishing, check the actual skill directory and executable health. Do not infer that configuration is missing just because it is not inside the user's current video workspace:
 
-- Skill directory: `/Users/chenhao/.codex/skills/video-shot-prompts/`.
+- Skill directory: `${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/`.
 - Image generation key: read the first non-empty, non-comment line of `.apiyi-key` in that directory.
 - TiKHub API key: read the first non-empty, non-comment line of `.tikhub-api-key` in that directory.
 - Buffer API key: read the first non-empty, non-comment line of `.buffer-api-key` in that directory, or use `BUFFER_API_KEY`.
@@ -52,14 +52,14 @@ When the user targets Europe or the United States, treat the audience as the pri
 If the source is a Douyin or TikTok share link rather than a local file, download it first through TiKHub. The key is read locally from `.tikhub-api-key`; do not paste it into a command, prompt, log, or source file:
 
 ```sh
-node /Users/chenhao/.codex/skills/video-shot-prompts/scripts/download-douyin.js \
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/download-douyin.js" \
   --url "https://v.douyin.com/..."
 ```
 
 For TikTok, use the dedicated downloader. Add `--audio-output` when the user asks to reuse the reference video's music; it downloads the source music track alongside the video and prints its credited title and artist when available:
 
 ```sh
-node /Users/chenhao/.codex/skills/video-shot-prompts/scripts/download-tiktok.js \
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/download-tiktok.js" \
   --url "https://vm.tiktok.com/..." \
   --extract-audio
 ```
@@ -234,21 +234,21 @@ Use a three-anchor continuity strategy. The goal is to keep the generated sequen
 Identity anchor generation:
 
 ```sh
-python3 /Users/chenhao/.codex/skills/video-shot-prompts/scripts/generate_image.py \
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/generate_image.py" \
   --prompt "<Fresh English prompt recreating the final product identity from inspected frames, not a frame copy> Avoid: <negative prompt>" \
-  --output "/Users/chenhao/Documents/Codex/media-library/generated-images/identity-anchor-<timestamp>.jpg"
+  --output "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-images/identity-anchor-<timestamp>.jpg"
 ```
 
 Storyboard shot using the identity anchor as a reference:
 
 ```sh
-python3 /Users/chenhao/.codex/skills/video-shot-prompts/scripts/generate_image.py \
-  --reference "/Users/chenhao/Documents/Codex/media-library/generated-images/identity-anchor-<timestamp>.jpg" \
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/generate_image.py" \
+  --reference "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-images/identity-anchor-<timestamp>.jpg" \
   --prompt "<Prompt preserving identity only while changing to this shot's actual stage and action> Avoid: <negative prompt>" \
-  --output "/Users/chenhao/Documents/Codex/media-library/generated-images/shot-02-<timestamp>.jpg"
+  --output "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-images/shot-02-<timestamp>.jpg"
 ```
 
-Put the APIYi key on the first line of `/Users/chenhao/.codex/skills/video-shot-prompts/.apiyi-key`. The script uses `POST https://api.apiyi.com/v1/images/generations` for the first shot and `POST https://api.apiyi.com/v1/images/edits` when `--reference` is supplied. Both modes decode `data[0].b64_json` into the requested image file. Use the default `1152x2048`, `medium`, and JPEG quality 90 for a vertical 9:16 preview. Override `--size`, `--quality`, `--output-format`, or `--output-compression` only when the shot requires it.
+Put the APIYi key on the first line of `${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/.apiyi-key`. The script uses `POST https://api.apiyi.com/v1/images/generations` for the first shot and `POST https://api.apiyi.com/v1/images/edits` when `--reference` is supplied. Both modes decode `data[0].b64_json` into the requested image file. Use the default `1152x2048`, `medium`, and JPEG quality 90 for a vertical 9:16 preview. Override `--size`, `--quality`, `--output-format`, or `--output-compression` only when the shot requires it.
 
 Use `--base-url https://b.apiyi.com/v1` only as a manual fallback after a failed call. Do not automatically retry or fail over: the API is synchronous, and a disconnected or timed-out client request may still be completing and billable. Do not copy API keys into prompts, output files, terminal logs, or source control.
 
@@ -261,9 +261,9 @@ If the API returns an error, report its status and a concise sanitized message. 
 When the user asks for a video carousel after generating the shot images, create a vertical MP4 before publishing. Each `shot-*` image becomes one slide, and the audio is taken from the source video starting at `0` unless overridden:
 
 ```sh
-node /Users/chenhao/.codex/skills/video-shot-prompts/scripts/create-slideshow-video.js \
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js" \
   --images-dir "outputs" \
-  --source-video "/Users/chenhao/Documents/Codex/media-library/source-videos/<source>.mp4" \
+  --source-video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/source-videos/<source>.mp4" \
   --slide-seconds 2.5
 ```
 
@@ -272,9 +272,9 @@ The output is 1080x1920, 30 fps, H.264/AAC, and uses the source video's audio tr
 For a Douyin-link workflow, use the downloaded file as `--source-video`, so the final slideshow keeps the source video's audio:
 
 ```sh
-node /Users/chenhao/.codex/skills/video-shot-prompts/scripts/create-slideshow-video.js \
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js" \
   --images-dir "outputs" \
-  --source-video "/Users/chenhao/Documents/Codex/media-library/source-videos/<source>.mp4"
+  --source-video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/source-videos/<source>.mp4"
 ```
 
 ### 10. Optional Buffer scheduling
@@ -284,19 +284,19 @@ When the user asks to publish through Buffer, inspect the finished asset first. 
 Test the COS destination without uploading:
 
 ```sh
-node /Users/chenhao/.codex/skills/video-shot-prompts/scripts/upload-to-cos.js \
-  --file "/Users/chenhao/Documents/Codex/media-library/generated-videos/<video>.mp4" \
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/upload-to-cos.js" \
+  --file "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-videos/<video>.mp4" \
   --dry-run
 ```
 
 ```sh
-node /Users/chenhao/.codex/skills/video-shot-prompts/scripts/publish-to-buffer.js \
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-buffer.js" \
   --list-channels
 ```
 
 ```sh
-node /Users/chenhao/.codex/skills/video-shot-prompts/scripts/publish-to-buffer.js \
-  --video "/Users/chenhao/Documents/Codex/media-library/generated-videos/<video>.mp4" \
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-buffer.js" \
+  --video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-videos/<video>.mp4" \
   --caption "<English caption>" \
   --title "<Video title>" \
   --channels "all" \
