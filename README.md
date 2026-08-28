@@ -28,3 +28,8 @@ needed: `APIYI_API_KEY`, `TIKHUB_API_KEY`, `BUFFER_API_KEY`,
 
 The installer writes available values only into the installed skill directory
 with mode `0600`. Secret files and `node_modules/` are ignored by Git.
+
+For a recurring cloud draft, copy the ready-to-use prompt from
+`references/scheduled-review-prompt.md`. It updates the skill from `main`, uses
+one TiKHub search request, renders with bundled music, and stops for review
+before any Buffer or Tencent COS action.

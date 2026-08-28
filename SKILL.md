@@ -1,6 +1,6 @@
 ---
 name: video-shot-prompts
-description: Analyze local, Douyin, or TikTok videos and extract their visual shot structure into detailed image or video generation prompts, then generate a preview image for every shot by default. Use when a user provides a video or Douyin/TikTok share link and asks for storyboard prompts, shot-by-shot descriptions, prompt reconstruction, reference-image comparison, music extraction, a next matching shot, or a generated preview image.
+description: Analyze local, Douyin, or TikTok videos into storyboard prompts and previews, or discover popular Douyin wool-felting references through TiKHub when no video is supplied. Generate coherent shots, render review videos with bundled music, and optionally publish only after explicit approval.
 ---
 
 # Video Shot Prompts
@@ -46,6 +46,27 @@ When the user targets Europe or the United States, treat the audience as the pri
 - Treat C2PA and other provenance metadata as part of the asset's authenticity record. Preserve it when present and do not strip or falsify AI-origin information.
 
 ## Workflow
+
+### 0. Route no-video requests and scheduled drafts
+
+When no source video is supplied for a wool-felting request, search TiKHub rather
+than inventing a source:
+
+```sh
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/search-douyin-references.js" \
+  --keyword "羊毛毡" --min-likes 100 --max-results 8 --pages 1
+```
+
+Select only a result whose reported like count is greater than 100. Treat it as
+process and composition inspiration, not permission to clone frames. The Search
+series is billed per request, so default to one page and do not retry
+automatically. Record the selected URL, author, description, and like count.
+
+For scheduled cloud drafts, first update the GitHub checkout with
+`git pull --ff-only origin main`, run `bash scripts/install-skill.sh`, and then
+read the newly installed `SKILL.md`. Require a clean checkout and never reset or
+discard user changes. Use the ready prompt in
+`references/scheduled-review-prompt.md`.
 
 ### 1. Inspect the source
 
@@ -256,30 +277,38 @@ For a still image, combine the positive prompt and only the highest-priority neg
 
 If the API returns an error, report its status and a concise sanitized message. Do not retry automatically when generation may incur usage or cost; ask the user whether to retry or revise the prompt.
 
-### 9. Build a slideshow video with source audio
+### 9. Build a slideshow video with bundled music
 
-When the user asks for a video carousel after generating the shot images, create a vertical MP4 before publishing. Each `shot-*` image becomes one slide, and the audio is taken from the source video starting at `0` unless overridden:
+When the user asks for a video carousel after generating the shot images, create
+a vertical MP4 with a track from `assets/music/`. Read
+`references/music-library.md` before choosing. Do not use the selected reference
+video's audio. Each `shot-*` image becomes one slide; short tracks loop and the
+renderer trims them to the video duration:
 
 ```sh
 node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js \
   --images-dir "outputs" \
-  --source-video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/source-videos/<source>.mp4" \
+  --audio "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/assets/music/<track>.mp3" \
   --slide-seconds 2.5
 ```
 
-The output is 1080x1920, 30 fps, H.264/AAC, and uses the source video's audio track trimmed to the slideshow duration. The source video and generated images remain unchanged.
+The output is 1080x1920, 30 fps, H.264/AAC. Record the music filename and source
+credit in the review manifest.
 
-For a Douyin-link workflow, use the downloaded file as `--source-video`, so the final slideshow keeps the source video's audio:
-
-```sh
-node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js \
-  --images-dir "outputs" \
-  --source-video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/source-videos/<source>.mp4"
-```
+After rendering, present the MP4 and caption to the user for review. Stop there.
+Do not upload, schedule, or publish until the user explicitly approves that
+exact video and caption.
 
 ### 10. Optional Buffer scheduling
 
-When the user asks to publish through Buffer, inspect the finished asset first. The publisher can upload a local video to Tencent COS bucket `codex-1306142582` in `ap-singapore`, obtain its stable public Tencent HTTPS URL, and pass that URL to Buffer. Connect the destination accounts in Buffer first. Use `--list-channels` to inspect the current destinations. Use `--channels all` to discover and publish to every currently connected channel; use explicit `service=<id>` entries only when publishing to a subset.
+Use Buffer only after explicit review approval. A recurring task that generates a
+draft must never cross this approval gate on its own. After approval, inspect the
+finished asset again. The publisher can upload a local video to Tencent COS
+bucket `codex-1306142582` in `ap-singapore`, obtain its stable public Tencent
+HTTPS URL, and pass that URL to Buffer. Connect the destination accounts in
+Buffer first. Use `--list-channels` to inspect the current destinations. Use
+`--channels all` to discover and publish to every currently connected channel;
+use explicit `service=<id>` entries only when publishing to a subset.
 
 Test the COS destination without uploading:
 
