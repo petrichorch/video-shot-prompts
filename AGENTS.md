@@ -1,19 +1,16 @@
 # Video Shot Prompts
 
-This repository contains the `video-shot-prompts` Codex skill at
-`video-shot-prompts-mobile/skills/video-shot-prompts`.
+This repository root is the complete `video-shot-prompts` Codex skill. Do not
+add another plugin, `mobile`, or `skills/video-shot-prompts` wrapper.
 
-The Codex cloud environment setup installs that directory into
-`${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts` and writes its API
-credentials there with mode `0600`. For requests involving video shot analysis,
-storyboard prompts, preview generation, Tencent COS upload, or Buffer publishing,
-read and follow that installed `SKILL.md`.
+After editing the repository, run `bash scripts/install-skill.sh` to synchronize
+it into `${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts` and install its
+Node dependencies. The installer preserves existing local credential files and
+writes credentials from environment variables when they are present.
 
-When no video is supplied for a wool-felting request, use the bundled Devon
-process keyframes and compact reference video under the installed skill's
-`assets/wool-felting-devon-process/` directory, then create 6-8 concept shots.
-Prefer native ImageGen for previews when it is available.
+For Codex Cloud, clone this repository and run `bash scripts/install-skill.sh`
+from the checkout during environment setup. Supply credentials separately as
+environment secrets. Never commit or print credential values.
 
 Use `node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-buffer.js" --list-channels`
-as the non-mutating Buffer connectivity check. Never print credential files or
-secret environment-variable values.
+as the non-mutating Buffer connectivity check.

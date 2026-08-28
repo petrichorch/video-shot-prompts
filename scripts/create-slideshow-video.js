@@ -13,7 +13,7 @@ function arg(name) {
 
 const imagesDir = arg('images-dir');
 const sourceVideo = arg('source-video');
-const libraryRoot = process.env.VIDEO_ASSET_LIBRARY || '/Users/chenhao/Documents/Codex/media-library';
+const libraryRoot = process.env.VIDEO_ASSET_LIBRARY || path.resolve(process.cwd(), 'media-library');
 const assetStamp = new Date().toISOString().replace(/[:.]/g, '-');
 const output = arg('output') || path.join(libraryRoot, 'generated-videos', `slideshow-${assetStamp}.mp4`);
 const slideSeconds = Number(arg('slide-seconds') || 2.5);

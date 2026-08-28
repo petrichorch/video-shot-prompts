@@ -1,17 +1,17 @@
 ---
 name: video-shot-prompts
-description: Analyze local, Douyin, or TikTok videos into detailed storyboard prompts and preview images, or create a 6-8 shot wool-felting storyboard from bundled process references when no video is supplied. Use for shot reconstruction, continuity analysis, reference comparison, music extraction, next-shot work, generated previews, and original wool-felting concept storyboards.
+description: Analyze local, Douyin, or TikTok videos and extract their visual shot structure into detailed image or video generation prompts, then generate a preview image for every shot by default. Use when a user provides a video or Douyin/TikTok share link and asks for storyboard prompts, shot-by-shot descriptions, prompt reconstruction, reference-image comparison, music extraction, a next matching shot, or a generated preview image.
 ---
 
 # Video Shot Prompts
 
 ## Overview
 
-Turn a video into a visually faithful shot list and reusable prompts, or build an original 6-8 shot wool-felting construction sequence from the bundled Devon Rex process study when no source is supplied. Preserve the actual craft stage, camera framing, hand actions, material state, lighting, background, subject identity, capture quality, and aspect ratio. Favor evidence density over decorative wording: a useful prompt records the exact visible state and physical change, not merely the general activity.
+Turn a local video into a visually faithful shot list and reusable prompts. Preserve the source video's actual craft stage, camera framing, hand actions, material state, lighting, background, subject identity, capture quality, and aspect ratio. Favor evidence density over decorative wording: a useful prompt records the exact visible state and physical change, not merely the general activity.
 
 ## Persistent asset library
 
-Store durable assets in the absolute path from `VIDEO_ASSET_LIBRARY` when it is set. Otherwise use `$PWD/media-library`, which works in both local and Codex cloud workspaces:
+Store durable assets outside the per-conversation workspace so they remain available in later tasks. Use `${VIDEO_ASSET_LIBRARY:-$PWD/media-library}` by default, or the absolute path in `VIDEO_ASSET_LIBRARY` when it is set:
 
 | Asset | Directory |
 | --- | --- |
@@ -22,7 +22,7 @@ Store durable assets in the absolute path from `VIDEO_ASSET_LIBRARY` when it is 
 
 Use timestamped, descriptive filenames and never overwrite an existing library asset. The task `work/` directory is only for transient frames, contact sheets, and retries. Save a generated image or finished video to the library as its canonical copy; create a task-local copy only when a tool requires one. Reuse library assets by their absolute paths in later conversations.
 
-Before the first asset write, set `ASSET_LIBRARY="${VIDEO_ASSET_LIBRARY:-$PWD/media-library}"` and create any missing directories with `mkdir -p "$ASSET_LIBRARY"/{source-videos,music,generated-images,generated-videos}`. The download and slideshow scripts create their own parent folders automatically; image-generation outputs require the target `generated-images/` directory to exist.
+Before the first asset write, create any missing library directories with `mkdir -p ${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/{source-videos,music,generated-images,generated-videos}`. The download and slideshow scripts create their own parent folders automatically; image-generation outputs require the target `generated-images/` directory to exist.
 
 ## Preflight and configuration discovery
 
@@ -47,25 +47,19 @@ When the user targets Europe or the United States, treat the audience as the pri
 
 ## Workflow
 
-### 0. Route the request
-
-- **Source-driven mode:** When the user supplies a local/uploaded video or Douyin/TikTok link, follow steps 1-10 and keep every shot evidence-based.
-- **Bundled-reference concept mode:** When the user asks for a wool-felting storyboard but supplies no video, read `references/no-input-wool-felting.md`, inspect the bundled keyframes, and create a coherent 6-8 shot concept. Do not invent timestamps or claim that generated stages came from a new source video.
-- If the user supplies neither a source nor a wool-felting concept, ask for a subject or propose one concise default; do not silently force the Devon cat onto an unrelated request.
-
 ### 1. Inspect the source
 
 If the source is a Douyin or TikTok share link rather than a local file, download it first through TiKHub. The key is read locally from `.tikhub-api-key`; do not paste it into a command, prompt, log, or source file:
 
 ```sh
-node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/download-douyin.js" \
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/download-douyin.js \
   --url "https://v.douyin.com/..."
 ```
 
 For TikTok, use the dedicated downloader. Add `--audio-output` when the user asks to reuse the reference video's music; it downloads the source music track alongside the video and prints its credited title and artist when available:
 
 ```sh
-node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/download-tiktok.js" \
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/download-tiktok.js \
   --url "https://vm.tiktok.com/..." \
   --extract-audio
 ```
@@ -226,8 +220,6 @@ If the user corrects the stage, accept the correction and re-anchor to the actua
 
 After completing the shot analysis (steps 1-5), generate a preview image for every shot by default—do not stop at prompts alone. Only skip generation if the user explicitly asks for prompts only.
 
-Prefer the native `imagegen`/ImageGen tool whenever it is available. Generate the identity anchor first, then generate each non-final shot with the identity anchor as the reference image and an explicit construction-stage override. Use `scripts/generate_image.py` through APIYi only when native ImageGen is unavailable. The API fallback may incur cost: do not retry or fail over after an ambiguous failure without user confirmation. In bundled-reference concept mode, inspect the bundled frames for craft grammar and capture style, but generate fresh compositions rather than editing or cloning the reference frames.
-
 Use a three-anchor continuity strategy. The goal is to keep the generated sequence consistent and source-realistic without returning near-duplicates of the video frames.
 
 1. **Find the final-product frame first.** Before generating the storyboard previews, locate the clearest finished-subject moment near the end of the source video. Prefer a frame where the final craft/object is fully visible, well lit, and representative of the subject identity. Extract this frame as an internal analysis reference such as `work/final-product-frame.jpg`.
@@ -242,7 +234,7 @@ Use a three-anchor continuity strategy. The goal is to keep the generated sequen
 Identity anchor generation:
 
 ```sh
-python3 "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/generate_image.py" \
+python3 ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/generate_image.py \
   --prompt "<Fresh English prompt recreating the final product identity from inspected frames, not a frame copy> Avoid: <negative prompt>" \
   --output "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-images/identity-anchor-<timestamp>.jpg"
 ```
@@ -250,7 +242,7 @@ python3 "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/generate_
 Storyboard shot using the identity anchor as a reference:
 
 ```sh
-python3 "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/generate_image.py" \
+python3 ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/generate_image.py \
   --reference "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-images/identity-anchor-<timestamp>.jpg" \
   --prompt "<Prompt preserving identity only while changing to this shot's actual stage and action> Avoid: <negative prompt>" \
   --output "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-images/shot-02-<timestamp>.jpg"
@@ -269,7 +261,7 @@ If the API returns an error, report its status and a concise sanitized message. 
 When the user asks for a video carousel after generating the shot images, create a vertical MP4 before publishing. Each `shot-*` image becomes one slide, and the audio is taken from the source video starting at `0` unless overridden:
 
 ```sh
-node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js" \
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js \
   --images-dir "outputs" \
   --source-video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/source-videos/<source>.mp4" \
   --slide-seconds 2.5
@@ -280,7 +272,7 @@ The output is 1080x1920, 30 fps, H.264/AAC, and uses the source video's audio tr
 For a Douyin-link workflow, use the downloaded file as `--source-video`, so the final slideshow keeps the source video's audio:
 
 ```sh
-node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js" \
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/create-slideshow-video.js \
   --images-dir "outputs" \
   --source-video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/source-videos/<source>.mp4"
 ```
@@ -292,18 +284,18 @@ When the user asks to publish through Buffer, inspect the finished asset first. 
 Test the COS destination without uploading:
 
 ```sh
-node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/upload-to-cos.js" \
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/upload-to-cos.js \
   --file "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-videos/<video>.mp4" \
   --dry-run
 ```
 
 ```sh
-node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-buffer.js" \
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-buffer.js \
   --list-channels
 ```
 
 ```sh
-node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-buffer.js" \
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-buffer.js \
   --video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-videos/<video>.mp4" \
   --caption "<English caption>" \
   --title "<Video title>" \
@@ -345,8 +337,6 @@ Negative prompt:
 ```
 
 Default to English generation prompts with Chinese explanations. Match the user's requested prompt style and detail level. Mention the source video's actual aspect ratio and avoid adding text, logos, or watermarks unless explicitly requested.
-
-For bundled-reference concept mode, output exactly 6-8 shots unless the user requests another count. Label them `概念分镜` rather than presenting fabricated source timestamps, and include the construction stage, English prompt, negative prompt, and continuity anchor for every shot.
 
 ## Quality Checks
 

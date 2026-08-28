@@ -10,11 +10,16 @@ function arg(name) {
   const index = args.indexOf(`--${name}`);
   return index === -1 ? null : args[index + 1];
 }
+const has = name => args.includes(`--${name}`);
 
 const shareUrl = arg('url');
-const libraryRoot = process.env.VIDEO_ASSET_LIBRARY || '/Users/chenhao/Documents/Codex/media-library';
+const audioOnly = has('audio-only');
+const libraryRoot = process.env.VIDEO_ASSET_LIBRARY || path.resolve(process.cwd(), 'media-library');
 const assetStamp = new Date().toISOString().replace(/[:.]/g, '-');
 const output = arg('output') || path.join(libraryRoot, 'source-videos', `douyin-${assetStamp}.mp4`);
+const audioOutput = arg('audio-output') || (has('extract-audio')
+  ? path.join(libraryRoot, 'music', `douyin-${assetStamp}.m4a`)
+  : null);
 const skillDir = path.resolve(__dirname, '..');
 const apiUrl = process.env.TIKHUB_API_URL
   || 'https://api.tikhub.io/api/v1/douyin/web/fetch_one_video_by_share_url';
@@ -38,10 +43,10 @@ function readSecretFile(fileName) {
 
 const apiKey = process.env.TIKHUB_API_KEY || readSecretFile('.tikhub-api-key');
 
-if (!shareUrl || !apiKey) {
-  console.error('Usage: download-douyin.js --url "https://v.douyin.com/..." [--output file.mp4]');
+if (has('help') || !shareUrl || !apiKey) {
+  console.error('Usage: download-douyin.js --url "https://v.douyin.com/..." [--output file.mp4] [--extract-audio | --audio-output file.m4a] [--audio-only]');
   if (!apiKey) console.error('Fill .tikhub-api-key or set TIKHUB_API_KEY');
-  process.exit(1);
+  process.exit(has('help') ? 0 : 1);
 }
 
 function safeMessage(body) {
@@ -123,6 +128,23 @@ function collectVideoUrls(value, key = '', found = []) {
   return found;
 }
 
+function firstUrl(value) {
+  if (typeof value === 'string' && /^https?:\/\//i.test(value)) return value;
+  if (Array.isArray(value)) return value.find(url => typeof url === 'string' && /^https?:\/\//i.test(url)) || null;
+  return null;
+}
+
+function musicFrom(body) {
+  const detail = body?.data?.aweme_detail || body?.data?.aweme_details?.[0] || body?.data;
+  const music = detail?.music || {};
+  return {
+    url: firstUrl(music.play_url?.url_list) || firstUrl(music.play_url?.uri) || firstUrl(music.play_url),
+    title: music.title || null,
+    artist: music.author || music.owner_nickname || null,
+    id: music.id_str || music.id || null
+  };
+}
+
 function curlDownload(url, destination) {
   return new Promise((resolve, reject) => {
     execFile('curl', [
@@ -166,26 +188,37 @@ function rejectHtmlDownload(destination) {
 async function main() {
   const requestUrl = `${apiUrl}?share_url=${encodeURIComponent(shareUrl)}`;
   const body = await requestJson(requestUrl);
-  const candidates = [...new Set([preferredVideoUrl(body), ...collectVideoUrls(body)].filter(Boolean))];
-  if (!candidates.length) {
-    throw new Error(`TiKHub response did not contain a downloadable video URL: ${safeMessage(body)}`);
-  }
-  let lastError;
-  for (const candidate of candidates) {
-    try {
-      await download(candidate, output);
-      rejectHtmlDownload(output);
-      lastError = null;
-      break;
-    } catch (error) {
-      lastError = error;
-      fs.rmSync(output, { force: true });
+  if (!audioOnly) {
+    const candidates = [...new Set([preferredVideoUrl(body), ...collectVideoUrls(body)].filter(Boolean))];
+    if (!candidates.length) {
+      throw new Error(`TiKHub response did not contain a downloadable video URL: ${safeMessage(body)}`);
     }
+    let lastError;
+    for (const candidate of candidates) {
+      try {
+        await download(candidate, output);
+        rejectHtmlDownload(output);
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        fs.rmSync(output, { force: true });
+      }
+    }
+    if (lastError) throw lastError;
+    const stat = fs.statSync(output);
+    if (!stat.size) throw new Error('Downloaded video is empty');
   }
-  if (lastError) throw lastError;
-  const stat = fs.statSync(output);
-  if (!stat.size) throw new Error('Downloaded video is empty');
-  console.log(`Downloaded Douyin video to ${output} (${stat.size} bytes)`);
+  const music = musicFrom(body);
+  if (audioOutput) {
+    if (!music.url) throw new Error('TiKHub response did not contain a downloadable Douyin music URL');
+    await download(music.url, audioOutput);
+  }
+  console.log(JSON.stringify({
+    video: audioOnly ? null : output,
+    audio: audioOutput || null,
+    music: { title: music.title, artist: music.artist, id: music.id }
+  }, null, 2));
 }
 
 main().catch(error => { console.error(error.message); process.exit(1); });

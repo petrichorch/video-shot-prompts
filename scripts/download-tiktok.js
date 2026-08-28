@@ -13,7 +13,7 @@ const arg = name => {
 const has = name => args.includes(`--${name}`);
 const shareUrl = arg('url');
 const audioOnly = has('audio-only');
-const libraryRoot = process.env.VIDEO_ASSET_LIBRARY || '/Users/chenhao/Documents/Codex/media-library';
+const libraryRoot = process.env.VIDEO_ASSET_LIBRARY || path.resolve(process.cwd(), 'media-library');
 const assetStamp = new Date().toISOString().replace(/[:.]/g, '-');
 const output = arg('output') || path.join(libraryRoot, 'source-videos', `tiktok-${assetStamp}.mp4`);
 const audioOutput = arg('audio-output') || (has('extract-audio')
