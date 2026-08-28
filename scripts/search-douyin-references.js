@@ -101,10 +101,10 @@ async function fetchPage(cursor) {
     body: JSON.stringify({
       keyword,
       cursor,
-      sort_type: 1,
-      publish_time: 0,
-      filter_duration: 0,
-      content_type: 1
+      sort_type: '1',
+      publish_time: '0',
+      filter_duration: '0',
+      content_type: '1'
     })
   });
   const text = await response.text();
