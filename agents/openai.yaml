@@ -1,8 +1,8 @@
 interface:
   display_name: "Video Shot Prompts"
-  short_description: "分析视频、发现热门羊毛毡参考并生成带配乐的审核成片"
+  short_description: "搜索并复刻羊毛毡宠物制作流程，生成带配乐审核成片"
   brand_color: "#C47A44"
-  default_prompt: "Use $video-shot-prompts to analyze a supplied video or discover a popular wool-felting reference, generate coherent previews, add bundled music, and deliver a finished draft for review without publishing it."
+  default_prompt: "Use $video-shot-prompts to analyze a supplied pet wool-felting video or find an eligible one through TiKHub, faithfully reconstruct its making flow with new previews and bundled music, and deliver the finished draft for review without publishing it."
 
 policy:
   allow_implicit_invocation: true

@@ -1,6 +1,6 @@
 ---
 name: video-shot-prompts
-description: Analyze local, Douyin, or TikTok videos into storyboard prompts and previews, or discover popular Douyin wool-felting references through TiKHub when no video is supplied. Generate coherent shots, render review videos with bundled music, and optionally publish only after explicit approval.
+description: Analyze and faithfully reconstruct local, Douyin, or TikTok pet wool-felting process videos into storyboard prompts, previews, and review videos. When no video is supplied, find an eligible Douyin pet-felting process video through TiKHub, reproduce its shot/process blueprint with bundled music, and publish only after explicit approval.
 ---
 
 # Video Shot Prompts
@@ -49,18 +49,30 @@ When the user targets Europe or the United States, treat the audience as the pri
 
 ### 0. Route no-video requests and scheduled drafts
 
-When no source video is supplied for a wool-felting request, search TiKHub rather
-than inventing a source:
+When no source video is supplied, search TiKHub for a complete pet wool-felting
+making process rather than inventing a source:
 
 ```sh
 node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/search-douyin-references.js" \
-  --keyword "羊毛毡" --min-likes 100 --max-results 8 --pages 1
+  --keyword "羊毛毡 宠物 制作" --min-likes 100 --max-duration 180 \
+  --max-results 8 --pages 1
 ```
 
-Select only a result whose reported like count is greater than 100. Treat it as
-process and composition inspiration, not permission to clone frames. The Search
-series is billed per request, so default to one page and do not retry
-automatically. Record the selected URL, author, description, and like count.
+Likes are an eligibility threshold, not a ranking signal: preserve TiKHub's
+comprehensive search order and select the first genuinely relevant result whose
+reported like count is greater than 100 and whose duration is at most 180
+seconds. Reject finished-product showcases, generic wool-felting clips, and
+videos that do not visibly show a pet construction process. The Search series
+is billed per request, so default to one page and do not retry automatically.
+Record the selected URL, author, description, like count, and duration.
+
+Download the selected video and reconstruct it faithfully. Use its complete
+shot sequence as the blueprint: preserve the chronological construction stages,
+shot boundaries, perspective, framing, hand/tool actions, material transitions,
+editing rhythm, transition pattern, and final reveal logic. The output must
+remain a pet wool-felting making video, not a generic craft concept inspired by
+the source. Generate new frames for the reconstructed pet and do not reuse the
+source video's pixels, overlays, watermark, or audio.
 
 For scheduled cloud drafts, first update the GitHub checkout with
 `git pull --ff-only origin main`, run `bash scripts/install-skill.sh`, and then

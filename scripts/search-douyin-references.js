@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Search Douyin through TiKHub and retain references above a like threshold.
+// Search Douyin through TiKHub and retain eligible pet-felting process videos.
 const fs = require('fs');
 const path = require('path');
 const { EnvHttpProxyAgent, setGlobalDispatcher } = require('undici');
@@ -15,8 +15,9 @@ const arg = name => {
   return index === -1 ? null : args[index + 1];
 };
 const has = name => args.includes(`--${name}`);
-const keyword = arg('keyword') || '羊毛毡';
+const keyword = arg('keyword') || '羊毛毡 宠物 制作';
 const minLikes = Number(arg('min-likes') || 100);
+const maxDurationSeconds = Number(arg('max-duration') || 180);
 const maxResults = Number(arg('max-results') || 8);
 const pages = Number(arg('pages') || 1);
 const skillDir = path.resolve(__dirname, '..');
@@ -24,7 +25,7 @@ const endpoint = process.env.TIKHUB_DOUYIN_SEARCH_API_URL
   || 'https://api.tikhub.io/api/v1/douyin/search/fetch_video_search_v2';
 
 function usage() {
-  console.error('Usage: search-douyin-references.js [--keyword 羊毛毡] [--min-likes 100] [--max-results 8] [--pages 1]');
+  console.error('Usage: search-douyin-references.js [--keyword "羊毛毡 宠物 制作"] [--min-likes 100] [--max-duration 180] [--max-results 8] [--pages 1]');
 }
 
 function readSecret() {
@@ -36,6 +37,7 @@ function readSecret() {
 
 const apiKey = process.env.TIKHUB_API_KEY || readSecret();
 if (has('help') || !apiKey || !Number.isFinite(minLikes) || minLikes < 0
+  || !Number.isFinite(maxDurationSeconds) || maxDurationSeconds <= 0 || maxDurationSeconds > 180
   || !Number.isInteger(maxResults) || maxResults < 1 || maxResults > 30
   || !Number.isInteger(pages) || pages < 1 || pages > 3) {
   usage();
@@ -46,6 +48,12 @@ if (has('help') || !apiKey || !Number.isFinite(minLikes) || minLikes < 0
 function asNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function asDurationMs(value) {
+  const parsed = asNumber(value);
+  if (!parsed) return 0;
+  return parsed < 1000 ? parsed * 1000 : parsed;
 }
 
 function candidateFrom(value) {
@@ -64,7 +72,7 @@ function candidateFrom(value) {
     description: String(item.desc || item.description || '').slice(0, 500),
     author: String(author.nickname || author.unique_id || author.short_id || ''),
     shareUrl: item.share_url || `https://www.douyin.com/video/${id}`,
-    durationMs: asNumber(item.duration || item.video?.duration)
+    durationMs: asDurationMs(item.duration || item.video?.duration)
   };
 }
 
@@ -101,7 +109,7 @@ async function fetchPage(cursor) {
     body: JSON.stringify({
       keyword,
       cursor,
-      sort_type: '1',
+      sort_type: '0',
       publish_time: '0',
       filter_duration: '0',
       content_type: '1'
@@ -132,12 +140,16 @@ async function main() {
     if (!previous || item.likes > previous.likes) unique.set(item.awemeId, item);
   }
   const results = [...unique.values()]
-    .filter(item => item.likes > minLikes)
-    .sort((a, b) => b.likes - a.likes)
+    .filter(item => item.likes > minLikes
+      && item.durationMs > 0
+      && item.durationMs <= maxDurationSeconds * 1000)
+    .map(item => ({ ...item, durationSeconds: Number((item.durationMs / 1000).toFixed(3)) }))
     .slice(0, maxResults);
   console.log(JSON.stringify({
     keyword,
     minLikesExclusive: minLikes,
+    maxDurationSeconds,
+    ordering: 'TiKHub comprehensive search order; not sorted by likes',
     pagesRequested: pages,
     requestCount: pages,
     resultCount: results.length,
