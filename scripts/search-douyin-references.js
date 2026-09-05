@@ -39,7 +39,7 @@ const apiKey = process.env.TIKHUB_API_KEY || readSecret();
 if (has('help') || !apiKey || !Number.isFinite(minLikes) || minLikes < 0
   || !Number.isFinite(maxDurationSeconds) || maxDurationSeconds <= 0 || maxDurationSeconds > 180
   || !Number.isInteger(maxResults) || maxResults < 1 || maxResults > 30
-  || !Number.isInteger(pages) || pages < 1 || pages > 3) {
+  || !Number.isInteger(pages) || pages < 1 || pages > 5) {
   usage();
   if (!apiKey) console.error('Fill .tikhub-api-key or set TIKHUB_API_KEY');
   process.exit(has('help') ? 0 : 1);

@@ -63,7 +63,11 @@ comprehensive search order and select the first genuinely relevant result whose
 reported like count is greater than 100 and whose duration is at most 180
 seconds. Reject finished-product showcases, generic wool-felting clips, and
 videos that do not visibly show a pet construction process. The Search series
-is billed per request, so default to one page and do not retry automatically.
+is billed per request, so default to one page and stop as soon as an eligible
+reference is found. TiKHub search, resolution, or download calls may be repeated
+when a request fails or no eligible result is returned, but make no more than
+five TiKHub API calls in one task. Do not use the extra calls to rank eligible
+videos by likes.
 Record the selected URL, author, description, like count, and duration.
 
 Download the selected video and reconstruct it faithfully. Use its complete
@@ -251,7 +255,17 @@ If the user corrects the stage, accept the correction and re-anchor to the actua
 
 ### 8. Generate preview images (default: on)
 
-After completing the shot analysis (steps 1-5), generate a preview image for every shot by default—do not stop at prompts alone. Only skip generation if the user explicitly asks for prompts only.
+After completing the shot analysis (steps 1-5), generate 8-15 user-facing
+storyboard preview images for a complete video by default—do not stop at prompts
+alone. The identity anchor reused as the final-product preview counts toward this
+total. Choose the count from the source's meaningful construction stages and
+shot structure; do not pad the sequence with near-duplicates. If the source has
+fewer than eight cuts, split continuous work only at genuine action or material-
+state changes. If it has more than fifteen cuts, retain the full timeline mapping
+but combine only adjacent, visually continuous moments into representative
+generated previews. A request for one specific next shot is exempt from this
+full-video range. Only skip generation if the user explicitly asks for prompts
+only.
 
 Use native ImageGen (`image-gen`) whenever that tool is available in the current environment. This priority is mandatory: do not call `scripts/generate_image.py`, APIYi, or another external image API merely because its credential is configured. Use the APIYi helper only when native ImageGen is unavailable. Keep the same continuity, stage-anchor, realism, inspection, and review requirements regardless of which generator is used.
 
@@ -323,6 +337,13 @@ HTTPS URL, and pass that URL to Buffer. Connect the destination accounts in
 Buffer first. Use `--list-channels` to inspect the current destinations. Use
 `--channels all` to discover and publish to every currently connected channel;
 use explicit `service=<id>` entries only when publishing to a subset.
+
+Buffer discovery, dry-run, scheduling, or retry calls may be repeated, but make
+no more than five Buffer API calls in one task and stop immediately after a
+successful result. Never retry a successful create or schedule request. If a
+mutating request has an unknown outcome, do not risk a duplicate post: inspect
+the remote state or ask the user before another mutating call. This retry ceiling
+does not bypass the explicit approval requirement.
 
 Test the COS destination without uploading:
 
