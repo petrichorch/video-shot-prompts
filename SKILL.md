@@ -29,7 +29,7 @@ Before the first asset write, create any missing library directories with `mkdir
 Before analyzing or publishing, check the actual skill directory and executable health. Do not infer that configuration is missing just because it is not inside the user's current video workspace:
 
 - Skill directory: `${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/`.
-- Image generation key: read the first non-empty, non-comment line of `.apiyi-key` in that directory.
+- Image generation routing: check whether a native ImageGen (`image-gen`) tool is available before reading or using any APIYi credential. When it is available, use native ImageGen for all preview generation and image editing. Read the first non-empty, non-comment line of `.apiyi-key` only when native ImageGen is unavailable and the APIYi fallback is actually needed.
 - TiKHub API key: read the first non-empty, non-comment line of `.tikhub-api-key` in that directory.
 - Buffer API key: read the first non-empty, non-comment line of `.buffer-api-key` in that directory, or use `BUFFER_API_KEY`.
 - Tencent COS upload key: prefer `TENCENTCLOUD_SECRET_ID` and `TENCENTCLOUD_SECRET_KEY`; local fallbacks are `.tencent-cos-secret-id` and `.tencent-cos-secret-key`. The uploader uses the official `cos-nodejs-sdk-v5` dependency. Use a dedicated CAM sub-user limited to uploads into `codex-1306142582`, never a root account key.
@@ -252,6 +252,8 @@ If the user corrects the stage, accept the correction and re-anchor to the actua
 ### 8. Generate preview images (default: on)
 
 After completing the shot analysis (steps 1-5), generate a preview image for every shot by default—do not stop at prompts alone. Only skip generation if the user explicitly asks for prompts only.
+
+Use native ImageGen (`image-gen`) whenever that tool is available in the current environment. This priority is mandatory: do not call `scripts/generate_image.py`, APIYi, or another external image API merely because its credential is configured. Use the APIYi helper only when native ImageGen is unavailable. Keep the same continuity, stage-anchor, realism, inspection, and review requirements regardless of which generator is used.
 
 Use a three-anchor continuity strategy. The goal is to keep the generated sequence consistent and source-realistic without returning near-duplicates of the video frames.
 
