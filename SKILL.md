@@ -19,6 +19,7 @@ Store durable assets outside the per-conversation workspace so they remain avail
 | Extracted or licensed music | `music/` |
 | Generated storyboard/product images | `generated-images/` |
 | Finished slideshow and rendered videos | `generated-videos/` |
+| Buffer receipts, metric history, and reports | `buffer/` |
 
 Use timestamped, descriptive filenames and never overwrite an existing library asset. The task `work/` directory is only for transient frames, contact sheets, and retries. Save a generated image or finished video to the library as its canonical copy; create a task-local copy only when a tool requires one. Reuse library assets by their absolute paths in later conversations.
 
@@ -34,6 +35,7 @@ Before analyzing or publishing, check the actual skill directory and executable 
 - Buffer API key: read the first non-empty, non-comment line of `.buffer-api-key` in that directory, or use `BUFFER_API_KEY`.
 - Tencent COS key: prefer `TENCENTCLOUD_SECRET_ID` and `TENCENTCLOUD_SECRET_KEY`; local fallbacks are `.tencent-cos-secret-id` and `.tencent-cos-secret-key`. The same credentials maintain the metadata-only reproduction-history manifest and upload approved media through the official `cos-nodejs-sdk-v5` dependency. Use a dedicated CAM sub-user limited to the required objects in `codex-1306142582`, never a root account key.
 - Verify `ffprobe -version` before running frame extraction. If it fails with a macOS `dyld` message such as `libxcb.1.dylib` missing, report the exact missing library and repair the local Homebrew dependency before claiming that the source video is unreadable. Do not silently switch tools or alter the original video.
+- Text overlays require either FFmpeg with the `drawtext` filter or ImageMagick (`magick` or `convert`). Check for one of these renderers before overlay work and report the missing dependency if neither is available.
 
 ## Western market defaults
 
@@ -313,6 +315,34 @@ For a still image, combine the positive prompt and only the highest-priority neg
 
 If the API returns an error, report its status and a concise sanitized message. Do not retry automatically when generation may incur usage or cost; ask the user whether to retry or revise the prompt.
 
+### 8a. Add text overlays (default: on)
+
+After all 8-15 storyboard previews pass visual inspection, add concise overlay
+copy before rendering the slideshow. Read
+[`references/text-overlays.md`](references/text-overlays.md), create one text
+entry per image, and run:
+
+```sh
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/add-text-overlays.js \
+  --input "<generated-images directory>" \
+  --texts "<texts.json>" \
+  --output "<generated-images directory>/overlaid"
+```
+
+Use the overlaid directory as the slideshow input. The first image carries the
+opening hook, middle images describe or react to visible construction progress,
+and the final image carries the payoff or restrained CTA. Write reactions and
+story progression rather than generic stage labels. Default to short natural
+English for Western audiences, manual line breaks of roughly 4-6 words, no
+emoji, and no unsupported claims. The renderer applies dynamic sizing, automatic
+wrapping, white text with a black outline, and vertical safe zones.
+
+Inspect every rendered overlay before video creation. Move the text block with
+`--y-percent` or revise the line breaks when it covers the hands, tool contact
+point, pet face, or important wool transition. Skip overlays only when the user
+explicitly requests clean imagery or the source format clearly depends on no
+text.
+
 ### 9. Build a slideshow video with bundled music
 
 When the user asks for a video carousel after generating the shot images, create
@@ -384,11 +414,39 @@ node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-bu
   --video "${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/generated-videos/<video>.mp4" \
   --caption "<English caption>" \
   --title "<Video title>" \
+  --source-url "<reference URL>" --source-id "<reference ID>" \
+  --music "<music filename>" --shot-count "<8-15>" \
+  --overlay-style "white-black-outline" \
   --channels "all" \
   --dry-run
 ```
 
 With `--video`, dry-run computes the COS URL without uploading; a real run uploads first and includes the COS object details in `buffer-meta.json`. Use `--video-url` when the media already has a public HTTPS URL. Omit `--dry-run` only after reviewing the targets and scheduled time. Add `--date "2026-08-16T13:00:00Z"` to use an explicit future publication time; otherwise Buffer adds the posts to each channel queue. For YouTube, set `--youtube-category-id` when a category other than `22` (People & Blogs) is appropriate. The publisher rejects CJK captions in the Western-market workflow and writes a `buffer-meta.json` receipt after successful requests. Do not put API keys in commands or output logs. Buffer requires an automatic-publishing connection for each channel; personal Instagram accounts can only use notification publishing. After connecting a new service, run dry-run with `--channels all` and verify every target before publishing.
+
+### 11. Post-publication performance feedback
+
+After Buffer reports a post as sent and has had time to ingest metrics, read
+[`references/post-publication-feedback.md`](references/post-publication-feedback.md)
+and run:
+
+```sh
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/check-buffer-performance.js
+```
+
+`publish-to-buffer.js` stores durable receipts under
+`${VIDEO_ASSET_LIBRARY:-$PWD/media-library}/buffer/receipts/` so the checker can
+link each Buffer post to its source, music, shot count, caption, and overlay
+style. The checker stores metric snapshots in `buffer/performance-history.json`
+and writes a dated Markdown report under `buffer/reports/`.
+
+Use only metrics actually returned by Buffer. Its post metrics are experimental,
+available only to personal workflows with a personal API key, and may lag the
+social network by about 24 hours. Require at least three comparable sent posts
+before treating relative exposure or engagement as a pattern. Feed supported
+findings into the next draft's opening frame, overlay hook, pacing, source
+blueprint, music choice, reveal, or posting time; keep variables that performed
+well and change only the most plausible weak layer. Do not invent missing watch
+time, conversions, demographics, or causal conclusions.
 
 ## Output Format
 

@@ -34,9 +34,14 @@ const channelsRaw = arg('channels') || '';
 const date = arg('date');
 const dryRun = has('dry-run');
 const youtubeCategoryId = arg('youtube-category-id') || '22';
+const sourceUrl = arg('source-url') || '';
+const sourceId = arg('source-id') || '';
+const music = arg('music') || '';
+const shotCount = Number(arg('shot-count') || 0) || null;
+const overlayStyle = arg('overlay-style') || '';
 
 function usage() {
-  console.error('Usage: publish-to-buffer.js --list-channels | --caption "..." --channels "all|tiktok=<id>,instagram=<id>,youtube=<id>,facebook=<id>" (--video /path/video.mp4 | --video-url https://... | --image-urls https://...,https://...) [--title "..."] [--date ISO] [--youtube-category-id 22] [--dry-run]');
+  console.error('Usage: publish-to-buffer.js --list-channels | --caption "..." --channels "all|tiktok=<id>,instagram=<id>,youtube=<id>,facebook=<id>" (--video /path/video.mp4 | --video-url https://... | --image-urls https://...,https://...) [--title "..."] [--date ISO] [--youtube-category-id 22] [--source-url URL] [--source-id ID] [--music FILE] [--shot-count N] [--overlay-style NAME] [--dry-run]');
   process.exit(1);
 }
 function parseChannels(value) {
@@ -112,8 +117,25 @@ async function main() {
     const data = await graphql(`mutation CreatePost($input: CreatePostInput!) { createPost(input: $input) { ... on PostActionSuccess { post { id dueAt channel { id name service } } } ... on MutationError { message } } }`, { input: target.input });
     results.push({ service: target.service, channelId: target.channelId, result: data.createPost });
   }
-  const receipt = { createdAt: new Date().toISOString(), date: date || null, cosUpload, results };
-  fs.writeFileSync(path.join(process.cwd(), 'buffer-meta.json'), JSON.stringify(receipt, null, 2));
+  const createdAt = new Date().toISOString();
+  const receipt = {
+    createdAt,
+    date: date || null,
+    title,
+    caption,
+    source: { id: sourceId || null, url: sourceUrl || null },
+    creative: { music: music || null, shotCount, overlayStyle: overlayStyle || null },
+    cosUpload,
+    results
+  };
+  const libraryRoot = process.env.VIDEO_ASSET_LIBRARY || path.resolve(process.cwd(), 'media-library');
+  const receiptDir = path.join(libraryRoot, 'buffer', 'receipts');
+  const receiptName = `buffer-${createdAt.replace(/[:.]/g, '-')}.json`;
+  fs.mkdirSync(receiptDir, { recursive: true });
+  const receiptPath = path.join(receiptDir, receiptName);
+  fs.writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+  fs.writeFileSync(path.join(process.cwd(), 'buffer-meta.json'), `${JSON.stringify({ ...receipt, receiptPath }, null, 2)}\n`);
+  receipt.receiptPath = receiptPath;
   console.log(JSON.stringify(receipt, null, 2));
 }
 
