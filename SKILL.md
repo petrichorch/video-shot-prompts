@@ -64,10 +64,9 @@ reported like count is greater than 100 and whose duration is at most 180
 seconds. Reject finished-product showcases, generic wool-felting clips, and
 videos that do not visibly show a pet construction process. The Search series
 is billed per request, so default to one page and stop as soon as an eligible
-reference is found. TiKHub search, resolution, or download calls may be repeated
-when a request fails or no eligible result is returned, but make no more than
-five TiKHub API calls in one task. Do not use the extra calls to rank eligible
-videos by likes.
+reference is found. Decide whether to retry or request another page from the
+actual error, result quality, and expected cost; avoid unnecessary calls and do
+not use retries to rank eligible videos by likes.
 Record the selected URL, author, description, like count, and duration.
 
 Download the selected video and reconstruct it faithfully. Use its complete
@@ -337,13 +336,6 @@ HTTPS URL, and pass that URL to Buffer. Connect the destination accounts in
 Buffer first. Use `--list-channels` to inspect the current destinations. Use
 `--channels all` to discover and publish to every currently connected channel;
 use explicit `service=<id>` entries only when publishing to a subset.
-
-Buffer discovery, dry-run, scheduling, or retry calls may be repeated, but make
-no more than five Buffer API calls in one task and stop immediately after a
-successful result. Never retry a successful create or schedule request. If a
-mutating request has an unknown outcome, do not risk a duplicate post: inspect
-the remote state or ask the user before another mutating call. This retry ceiling
-does not bypass the explicit approval requirement.
 
 Test the COS destination without uploading:
 
