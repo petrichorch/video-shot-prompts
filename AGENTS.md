@@ -1,7 +1,6 @@
 # Video Shot Prompts
 
-This repository root is the complete `video-shot-prompts` Codex skill. Do not
-add another plugin, `mobile`, or `skills/video-shot-prompts` wrapper.
+This repository root contains the complete `video-shot-prompts` Codex skill.
 
 After editing the repository, run `bash scripts/install-skill.sh` to synchronize
 it into `${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts` and install its

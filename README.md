@@ -1,7 +1,6 @@
 # video-shot-prompts
 
-A flat, installable Codex skill repository. `SKILL.md` is intentionally at the
-repository root; there is no plugin or `mobile/skills/...` wrapper.
+An installable Codex skill repository with `SKILL.md` at the repository root.
 
 ## Local development
 
