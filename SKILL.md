@@ -32,7 +32,7 @@ Before analyzing or publishing, check the actual skill directory and executable 
 - Image generation routing: check whether a native ImageGen (`image-gen`) tool is available before reading or using any APIYi credential. When it is available, use native ImageGen for all preview generation and image editing. Read the first non-empty, non-comment line of `.apiyi-key` only when native ImageGen is unavailable and the APIYi fallback is actually needed.
 - TiKHub API key: read the first non-empty, non-comment line of `.tikhub-api-key` in that directory.
 - Buffer API key: read the first non-empty, non-comment line of `.buffer-api-key` in that directory, or use `BUFFER_API_KEY`.
-- Tencent COS upload key: prefer `TENCENTCLOUD_SECRET_ID` and `TENCENTCLOUD_SECRET_KEY`; local fallbacks are `.tencent-cos-secret-id` and `.tencent-cos-secret-key`. The uploader uses the official `cos-nodejs-sdk-v5` dependency. Use a dedicated CAM sub-user limited to uploads into `codex-1306142582`, never a root account key.
+- Tencent COS key: prefer `TENCENTCLOUD_SECRET_ID` and `TENCENTCLOUD_SECRET_KEY`; local fallbacks are `.tencent-cos-secret-id` and `.tencent-cos-secret-key`. The same credentials maintain the metadata-only reproduction-history manifest and upload approved media through the official `cos-nodejs-sdk-v5` dependency. Use a dedicated CAM sub-user limited to the required objects in `codex-1306142582`, never a root account key.
 - Verify `ffprobe -version` before running frame extraction. If it fails with a macOS `dyld` message such as `libxcb.1.dylib` missing, report the exact missing library and repair the local Homebrew dependency before claiming that the source video is unreadable. Do not silently switch tools or alter the original video.
 
 ## Western market defaults
@@ -53,10 +53,19 @@ When no source video is supplied, search TiKHub for a complete pet wool-felting
 making process rather than inventing a source:
 
 ```sh
+node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/manage-reproduction-history.js" --init
 node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/search-douyin-references.js" \
   --keyword "羊毛毡 宠物 制作" --min-likes 100 --max-duration 180 \
   --max-results 8 --pages 1
 ```
+
+The search script reads the metadata-only COS object
+`buffer-media/reproduced-videos.json` and excludes matching Douyin IDs or source
+URLs before returning candidates. Do not silently bypass this check if COS
+credentials are missing or the manifest is malformed; report the problem rather
+than knowingly selecting a possibly repeated source. Use
+`manage-reproduction-history.js --list` to inspect the sanitized history without
+printing credentials.
 
 Likes are an eligibility threshold, not a ranking signal: preserve TiKHub's
 comprehensive search order and select the first genuinely relevant result whose
@@ -325,6 +334,26 @@ credit in the review manifest.
 After rendering, present the MP4 and caption to the user for review. Stop there.
 Do not upload, schedule, or publish until the user explicitly approves that
 exact video and caption.
+
+Immediately after a review video is rendered successfully, record its source in
+the COS reproduction history so later scheduled runs cannot select it
+again. Record a Douyin or TikTok source ID whenever available; use the canonical
+source URL as the fallback identity. Do not record a candidate merely because it
+was searched or downloaded—the entry means a reconstruction was actually
+created:
+
+```sh
+node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/manage-reproduction-history.js \
+  --record --platform douyin --source-id "<awemeId>" --source-url "<source URL>" \
+  --author "<author>" --description "<description>" \
+  --likes "<likes>" --duration "<seconds>"
+```
+
+The manifest is publicly readable so cloud tasks with upload-only COS credentials
+can still perform deduplication. It contains source metadata and reconstruction
+timestamps only; never write API keys, tokens, captions, customer data, or local
+credential paths into it. If recording fails, report that deduplication is not
+durable yet instead of claiming the task is fully recorded.
 
 ### 10. Optional Buffer scheduling
 

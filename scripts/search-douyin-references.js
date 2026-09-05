@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { EnvHttpProxyAgent, setGlobalDispatcher } = require('undici');
+const { loadHistory, wasReproduced } = require('./manage-reproduction-history');
 
 if (process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy) {
   setGlobalDispatcher(new EnvHttpProxyAgent());
@@ -139,10 +140,21 @@ async function main() {
     const previous = unique.get(item.awemeId);
     if (!previous || item.likes > previous.likes) unique.set(item.awemeId, item);
   }
+  const { history, key: historyObjectKey } = await loadHistory();
+  let excludedAsAlreadyReproduced = 0;
   const results = [...unique.values()]
     .filter(item => item.likes > minLikes
       && item.durationMs > 0
       && item.durationMs <= maxDurationSeconds * 1000)
+    .filter(item => {
+      const seen = wasReproduced(history, {
+        platform: 'douyin',
+        sourceId: item.awemeId,
+        sourceUrl: item.shareUrl
+      });
+      if (seen) excludedAsAlreadyReproduced += 1;
+      return !seen;
+    })
     .map(item => ({ ...item, durationSeconds: Number((item.durationMs / 1000).toFixed(3)) }))
     .slice(0, maxResults);
   console.log(JSON.stringify({
@@ -150,6 +162,8 @@ async function main() {
     minLikesExclusive: minLikes,
     maxDurationSeconds,
     ordering: 'TiKHub comprehensive search order; not sorted by likes',
+    reproductionHistoryObject: historyObjectKey,
+    excludedAsAlreadyReproduced,
     pagesRequested: pages,
     requestCount: pages,
     resultCount: results.length,

@@ -97,5 +97,12 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
 }
 
-module.exports = { uploadFile, defaultObjectKey, contentType };
+module.exports = {
+  uploadFile,
+  defaultObjectKey,
+  contentType,
+  credentials,
+  DEFAULT_BUCKET,
+  DEFAULT_REGION
+};
 if (require.main === module) main().catch(error => { console.error(error.message); process.exit(1); });
