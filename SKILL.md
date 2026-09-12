@@ -94,6 +94,13 @@ read the newly installed `SKILL.md`. Require a clean checkout and never reset or
 discard user changes. Use the ready prompt in
 `references/scheduled-review-prompt.md`.
 
+Before choosing the next draft's hook, opening frame, or pacing, follow
+[`references/notion-performance-reports.md`](references/notion-performance-reports.md)
+and read the latest report from the Notion page titled `视频表现报告`. Treat
+Notion as the durable feedback source and the local `buffer/reports/` directory
+as an operational cache. Apply a reported pattern only when it is supported by
+at least three sent posts on the same or genuinely comparable channel.
+
 ### 1. Inspect the source
 
 If the source is a Douyin or TikTok share link rather than a local file, download it first through TiKHub. The key is read locally from `.tikhub-api-key`; do not paste it into a command, prompt, log, or source file:
@@ -438,6 +445,13 @@ node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/check-buffer-
 link each Buffer post to its source, music, shot count, caption, and overlay
 style. The checker stores metric snapshots in `buffer/performance-history.json`
 and writes a dated Markdown report under `buffer/reports/`.
+
+When the checker finds new valid metrics, follow
+[`references/notion-performance-reports.md`](references/notion-performance-reports.md)
+and create a dated child page under the Notion page titled `视频表现报告`. Do not
+create or update a report page when there are no new valid metrics. Store only
+the sanitized report; never copy API keys, authentication details, local paths,
+or full publishing receipts into Notion.
 
 Use only metrics actually returned by Buffer. Its post metrics are experimental,
 available only to personal workflows with a personal API key, and may lag the
