@@ -20,6 +20,13 @@ The script reads durable publishing receipts, fetches each post's current status
 and metrics, preserves snapshots, and writes the latest comparison report. Raw
 metric names are retained because available metrics differ by social network.
 
+When the script reports new valid metrics, follow
+[`notion-performance-reports.md`](notion-performance-reports.md) and save the
+sanitized report as a dated child page under the Notion page titled
+`视频表现报告`. Do not write a Notion page when no eligible sent post has a new
+metric snapshot. The local report remains an operational cache; Notion is the
+durable source used by future video-generation runs.
+
 ## Interpretation
 
 Do not use Larry's fixed viral thresholds. Compare at least three sent posts on
