@@ -96,6 +96,9 @@ async function main() {
     ? await getConnectedChannels()
     : Object.entries(parseChannels(channelsRaw)).map(([service, id]) => ({ service, id }));
   if (!channels.length) throw new Error('No connected Buffer channels found. Connect at least one destination or pass explicit --channels values.');
+  if (channels.length > 1 && !date) {
+    throw new Error('Multi-channel publishing requires --date with one explicit future ISO timestamp so every channel publishes simultaneously.');
+  }
   const assets = videoUrl
     ? [{ video: { url: videoUrl, metadata: { title: title || undefined, thumbnailOffset: 1000 } } }]
     : imageUrls.map(url => ({ image: { url } }));

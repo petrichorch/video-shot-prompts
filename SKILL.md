@@ -44,7 +44,7 @@ When the user targets Europe or the United States, treat the audience as the pri
 - Write generation prompts, titles, captions, hooks, and calls to action in natural English. Use US English for `us`, UK English for `uk`, and neutral international English for `eu`.
 - Adapt references, idioms, spelling, units, and calls to action to the selected market. Do not translate Chinese phrasing literally, use China-specific platform language, or put Chinese text in the creative unless explicitly requested.
 - Keep the first caption line as a clear English hook. Describe the actual craft or product state, avoid unsupported claims, and use a restrained CTA appropriate to the platform.
-- For Buffer scheduling, use `us` with `America/New_York`, `uk` with `Europe/London`, or `eu` with `Europe/Berlin`. The default posting windows are local `09:00`, `13:00`, and `19:00`; override them only when the user's audience data supports a different schedule.
+- For Buffer scheduling to a mixed Europe-and-US audience, use one shared publication instant at `13:00 America/New_York` on the chosen day. This normally reaches the US West Coast at 10:00, London at 18:00, and Berlin at 19:00; use timezone-aware conversion because daylight-saving transitions can temporarily shift the European times. Pass the resulting future ISO timestamp with `--date` so every selected channel publishes simultaneously. For a single-market campaign, use `09:00`, `13:00`, or `19:00` in that market's timezone unless audience data supports another time.
 - Treat C2PA and other provenance metadata as part of the asset's authenticity record. Preserve it when present and do not strip or falsify AI-origin information.
 
 ## Workflow
@@ -425,10 +425,15 @@ node ${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/publish-to-bu
   --music "<music filename>" --shot-count "<8-15>" \
   --overlay-style "white-black-outline" \
   --channels "all" \
+  --date "<future ISO timestamp for 13:00 America/New_York>" \
   --dry-run
 ```
 
-With `--video`, dry-run computes the COS URL without uploading; a real run uploads first and includes the COS object details in `buffer-meta.json`. Use `--video-url` when the media already has a public HTTPS URL. Omit `--dry-run` only after reviewing the targets and scheduled time. Add `--date "2026-08-16T13:00:00Z"` to use an explicit future publication time; otherwise Buffer adds the posts to each channel queue. For YouTube, set `--youtube-category-id` when a category other than `22` (People & Blogs) is appropriate. The publisher rejects CJK captions in the Western-market workflow and writes a `buffer-meta.json` receipt after successful requests. Do not put API keys in commands or output logs. Buffer requires an automatic-publishing connection for each channel; personal Instagram accounts can only use notification publishing. After connecting a new service, run dry-run with `--channels all` and verify every target before publishing.
+With `--video`, dry-run computes the COS URL without uploading; a real run uploads first and includes the COS object details in `buffer-meta.json`. Use `--video-url` when the media already has a public HTTPS URL. Omit `--dry-run` only after reviewing the targets and scheduled time.
+
+Cross-channel scheduling has a strict invariant: one content item uses one explicit future ISO timestamp across every selected channel. Never rely on per-channel Buffer queue slots for a multi-channel publish. For a mixed Europe-and-US audience, choose the next appropriate calendar day at `13:00 America/New_York`, convert that local time to ISO, and pass it once with `--date`; the publisher applies the identical `dueAt` to all targets. In dry-run, verify that every target uses `customScheduled` and that all `dueAt` values are identical. When several approved videos are being scheduled, normally place them on successive days at the same shared window unless the user asks for a different cadence. The publisher rejects a multi-channel request without `--date` instead of silently falling back to separate queue times.
+
+For YouTube, set `--youtube-category-id` when a category other than `22` (People & Blogs) is appropriate. The publisher rejects CJK captions in the Western-market workflow and writes a `buffer-meta.json` receipt after successful requests. Do not put API keys in commands or output logs. Buffer requires an automatic-publishing connection for each channel; personal Instagram accounts can only use notification publishing. After connecting a new service, run dry-run with `--channels all` and verify every target before publishing.
 
 ### 11. Post-publication performance feedback
 
