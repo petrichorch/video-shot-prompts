@@ -5,6 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const { EnvHttpProxyAgent, setGlobalDispatcher } = require('undici');
 const { loadHistory, wasReproduced } = require('./manage-reproduction-history');
+const {
+  DEFAULT_KEYWORDS,
+  DEFAULT_REFRESH_EVERY,
+  loadSearchState,
+  saveSearchState,
+  planSearch,
+  completeSearch
+} = require('./douyin-search-state');
 
 if (process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy) {
   setGlobalDispatcher(new EnvHttpProxyAgent());
@@ -16,17 +24,18 @@ const arg = name => {
   return index === -1 ? null : args[index + 1];
 };
 const has = name => args.includes(`--${name}`);
-const keyword = arg('keyword') || '羊毛毡 宠物 制作';
+const explicitKeyword = arg('keyword') || '';
 const minLikes = Number(arg('min-likes') || 100);
 const maxDurationSeconds = Number(arg('max-duration') || 180);
 const maxResults = Number(arg('max-results') || 8);
 const pages = Number(arg('pages') || 1);
+const refreshEvery = Number(arg('refresh-every') || DEFAULT_REFRESH_EVERY);
 const skillDir = path.resolve(__dirname, '..');
 const endpoint = process.env.TIKHUB_DOUYIN_SEARCH_API_URL
   || 'https://api.tikhub.io/api/v1/douyin/search/fetch_video_search_v2';
 
 function usage() {
-  console.error('Usage: search-douyin-references.js [--keyword "羊毛毡 宠物 制作"] [--min-likes 100] [--max-duration 180] [--max-results 8] [--pages 1]');
+  console.error('Usage: search-douyin-references.js [--keyword "QUERY"] [--min-likes 100] [--max-duration 180] [--max-results 8] [--pages 1] [--refresh-every 3]');
 }
 
 function readSecret() {
@@ -40,7 +49,8 @@ const apiKey = process.env.TIKHUB_API_KEY || readSecret();
 if (has('help') || !apiKey || !Number.isFinite(minLikes) || minLikes < 0
   || !Number.isFinite(maxDurationSeconds) || maxDurationSeconds <= 0 || maxDurationSeconds > 180
   || !Number.isInteger(maxResults) || maxResults < 1 || maxResults > 30
-  || !Number.isInteger(pages) || pages < 1 || pages > 3) {
+  || !Number.isInteger(pages) || pages < 1 || pages > 3
+  || !Number.isInteger(refreshEvery) || refreshEvery < 2 || refreshEvery > 30) {
   usage();
   if (!apiKey) console.error('Fill .tikhub-api-key or set TIKHUB_API_KEY');
   process.exit(has('help') ? 0 : 1);
@@ -99,7 +109,7 @@ function nextCursor(body) {
   return options.find(value => value !== undefined && value !== null) ?? 0;
 }
 
-async function fetchPage(cursor) {
+async function fetchPage(keyword, cursor) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -128,19 +138,46 @@ async function fetchPage(cursor) {
 }
 
 async function main() {
-  let cursor = 0;
+  const [{ history, key: historyObjectKey }, loadedState] = await Promise.all([
+    loadHistory(),
+    loadSearchState()
+  ]);
+  const plan = planSearch(loadedState.state, {
+    keywords: DEFAULT_KEYWORDS,
+    explicitKeyword,
+    refreshEvery
+  });
+  const startedAt = new Date().toISOString();
+  const keyword = plan.keyword;
+  let cursor = plan.startCursor;
   const all = [];
+  let requestCount = 0;
+  let stoppedAfterEligibleMetadata = false;
   for (let page = 0; page < pages; page += 1) {
-    const body = await fetchPage(cursor);
+    const requestCursor = cursor;
+    const body = await fetchPage(keyword, cursor);
+    requestCount += 1;
     all.push(...collectCandidates(body));
     cursor = nextCursor(body);
+    const pageHasEligibleMetadata = all.some(item => item.likes > minLikes
+      && item.durationMs > 0
+      && item.durationMs <= maxDurationSeconds * 1000
+      && !wasReproduced(history, {
+        platform: 'douyin',
+        sourceId: item.awemeId,
+        sourceUrl: item.shareUrl
+      }));
+    if (pageHasEligibleMetadata) {
+      stoppedAfterEligibleMetadata = true;
+      break;
+    }
+    if (cursor === 0 || String(cursor) === String(requestCursor)) break;
   }
   const unique = new Map();
   for (const item of all) {
     const previous = unique.get(item.awemeId);
     if (!previous || item.likes > previous.likes) unique.set(item.awemeId, item);
   }
-  const { history, key: historyObjectKey } = await loadHistory();
   let excludedAsAlreadyReproduced = 0;
   const results = [...unique.values()]
     .filter(item => item.likes > minLikes
@@ -157,15 +194,30 @@ async function main() {
     })
     .map(item => ({ ...item, durationSeconds: Number((item.durationMs / 1000).toFixed(3)) }))
     .slice(0, maxResults);
+  const nextState = completeSearch(loadedState.state, plan, {
+    nextCursor: cursor,
+    startedAt,
+    finishedAt: new Date().toISOString()
+  });
+  await saveSearchState(nextState, loadedState);
   console.log(JSON.stringify({
     keyword,
+    keywordMode: explicitKeyword ? 'explicit' : 'rotating',
+    keywordIndex: plan.keywordIndex,
+    keywordPoolSize: DEFAULT_KEYWORDS.length,
+    searchStateObject: loadedState.key,
+    startCursor: plan.startCursor,
+    nextCursor: cursor,
+    startedFromHead: plan.startedFromHead,
+    headRefreshEveryKeywordUses: refreshEvery,
     minLikesExclusive: minLikes,
     maxDurationSeconds,
     ordering: 'TiKHub comprehensive search order; not sorted by likes',
     reproductionHistoryObject: historyObjectKey,
     excludedAsAlreadyReproduced,
     pagesRequested: pages,
-    requestCount: pages,
+    requestCount,
+    stoppedAfterEligibleMetadata,
     resultCount: results.length,
     results
   }, null, 2));

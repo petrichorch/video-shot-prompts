@@ -57,7 +57,7 @@ making process rather than inventing a source:
 ```sh
 node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/manage-reproduction-history.js" --init
 node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/search-douyin-references.js" \
-  --keyword "羊毛毡 宠物 制作" --min-likes 100 --max-duration 180 \
+  --min-likes 100 --max-duration 180 \
   --max-results 8 --pages 1
 ```
 
@@ -68,6 +68,19 @@ credentials are missing or the manifest is malformed; report the problem rather
 than knowingly selecting a possibly repeated source. Use
 `manage-reproduction-history.js --list` to inspect the sanitized history without
 printing credentials.
+
+For scheduled no-video runs, let the search script choose its default keyword
+instead of passing `--keyword`. It rotates through pet-felting process queries,
+resumes each query from the cursor stored in
+`buffer-media/douyin-search-state.json`, and periodically rescans that query's
+first page so newly published videos are still discovered. The default pool is
+`羊毛毡 宠物 制作`, `羊毛毡 宠物定制 制作过程`, `羊毛毡 猫 制作`, and
+`羊毛毡 狗 制作`; every third use of a given query starts again at
+cursor zero by default. The state file is
+metadata-only and separate from reproduction history. Pass `--keyword` only for
+a deliberate one-query search; explicit queries still retain their own cursor.
+Do not delete or reset search state merely because a page contains only duplicate
+or ineligible results.
 
 Likes are an eligibility threshold, not a ranking signal: preserve TiKHub's
 comprehensive search order and select the first genuinely relevant result whose
