@@ -13,6 +13,11 @@ const {
   planSearch,
   completeSearch
 } = require('./douyin-search-state');
+const {
+  extractPagination,
+  searchRequestBody,
+  shouldRequestNextPage
+} = require('./douyin-search-pagination');
 
 if (process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy) {
   setGlobalDispatcher(new EnvHttpProxyAgent());
@@ -99,17 +104,7 @@ function collectCandidates(value, found = []) {
   return found;
 }
 
-function nextCursor(body) {
-  const options = [
-    body?.data?.cursor,
-    body?.data?.data?.cursor,
-    body?.data?.extra?.cursor,
-    body?.cursor
-  ];
-  return options.find(value => value !== undefined && value !== null) ?? 0;
-}
-
-async function fetchPage(keyword, cursor) {
+async function fetchPage(keyword, pagination) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -117,14 +112,7 @@ async function fetchPage(keyword, cursor) {
       Accept: 'application/json',
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      keyword,
-      cursor,
-      sort_type: '0',
-      publish_time: '0',
-      filter_duration: '0',
-      content_type: '1'
-    })
+    body: JSON.stringify(searchRequestBody(keyword, pagination))
   });
   const text = await response.text();
   let body;
@@ -149,29 +137,26 @@ async function main() {
   });
   const startedAt = new Date().toISOString();
   const keyword = plan.keyword;
-  let cursor = plan.startCursor;
+  let pagination = {
+    cursor: plan.startCursor,
+    searchId: plan.searchId,
+    backtrace: plan.backtrace,
+    hasMore: true
+  };
   const all = [];
   let requestCount = 0;
-  let stoppedAfterEligibleMetadata = false;
   for (let page = 0; page < pages; page += 1) {
-    const requestCursor = cursor;
-    const body = await fetchPage(keyword, cursor);
+    const requestCursor = pagination.cursor;
+    const body = await fetchPage(keyword, pagination);
     requestCount += 1;
     all.push(...collectCandidates(body));
-    cursor = nextCursor(body);
-    const pageHasEligibleMetadata = all.some(item => item.likes > minLikes
-      && item.durationMs > 0
-      && item.durationMs <= maxDurationSeconds * 1000
-      && !wasReproduced(history, {
-        platform: 'douyin',
-        sourceId: item.awemeId,
-        sourceUrl: item.shareUrl
-      }));
-    if (pageHasEligibleMetadata) {
-      stoppedAfterEligibleMetadata = true;
-      break;
-    }
-    if (cursor === 0 || String(cursor) === String(requestCursor)) break;
+    pagination = extractPagination(body);
+    if (!shouldRequestNextPage({
+      pageIndex: page,
+      pages,
+      requestCursor,
+      pagination
+    })) break;
   }
   const unique = new Map();
   for (const item of all) {
@@ -195,7 +180,9 @@ async function main() {
     .map(item => ({ ...item, durationSeconds: Number((item.durationMs / 1000).toFixed(3)) }))
     .slice(0, maxResults);
   const nextState = completeSearch(loadedState.state, plan, {
-    nextCursor: cursor,
+    nextCursor: pagination.cursor,
+    searchId: pagination.searchId,
+    backtrace: pagination.backtrace,
     startedAt,
     finishedAt: new Date().toISOString()
   });
@@ -207,7 +194,8 @@ async function main() {
     keywordPoolSize: DEFAULT_KEYWORDS.length,
     searchStateObject: loadedState.key,
     startCursor: plan.startCursor,
-    nextCursor: cursor,
+    nextCursor: pagination.cursor,
+    hasMore: pagination.hasMore,
     startedFromHead: plan.startedFromHead,
     headRefreshEveryKeywordUses: refreshEvery,
     minLikesExclusive: minLikes,
@@ -217,7 +205,7 @@ async function main() {
     excludedAsAlreadyReproduced,
     pagesRequested: pages,
     requestCount,
-    stoppedAfterEligibleMetadata,
+    stoppedAfterEligibleMetadata: false,
     resultCount: results.length,
     results
   }, null, 2));

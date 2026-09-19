@@ -32,6 +32,21 @@ test('rotates keywords and resumes each saved cursor', () => {
   assert.equal(resumed.startedFromHead, false);
 });
 
+test('persists and resumes the complete pagination context', () => {
+  let state = emptyState();
+  let plan = planSearch(state, { explicitKeyword: '羊毛毡 猫 制作' });
+  state = completeSearch(state, plan, {
+    nextCursor: 8,
+    searchId: 'search-123',
+    backtrace: 'opaque-token'
+  });
+
+  plan = planSearch(state, { explicitKeyword: '羊毛毡 猫 制作' });
+  assert.equal(plan.startCursor, 8);
+  assert.equal(plan.searchId, 'search-123');
+  assert.equal(plan.backtrace, 'opaque-token');
+});
+
 test('periodically refreshes the first page for each keyword', () => {
   let state = emptyState();
   let plan = planSearch(state, { explicitKeyword: '羊毛毡 猫 制作', refreshEvery: 3 });
@@ -44,6 +59,8 @@ test('periodically refreshes the first page for each keyword', () => {
   plan = planSearch(state, { explicitKeyword: '羊毛毡 猫 制作', refreshEvery: 3 });
   assert.equal(plan.startCursor, 0);
   assert.equal(plan.startedFromHead, true);
+  assert.equal(plan.searchId, '');
+  assert.equal(plan.backtrace, '');
 });
 
 test('rejects malformed persisted state', () => {
@@ -57,4 +74,6 @@ test('normalizes numeric string cursors from persisted JSON', () => {
     }
   });
   assert.equal(state.queries['羊毛毡 宠物 制作'].cursor, 48);
+  assert.equal(state.queries['羊毛毡 宠物 制作'].searchId, '');
+  assert.equal(state.queries['羊毛毡 宠物 制作'].backtrace, '');
 });

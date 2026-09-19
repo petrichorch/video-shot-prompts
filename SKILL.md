@@ -82,15 +82,25 @@ a deliberate one-query search; explicit queries still retain their own cursor.
 Do not delete or reset search state merely because a page contains only duplicate
 or ineligible results.
 
+TiKHub V2 pagination requires the returned `cursor`, `search_id`, and
+`backtrace` together. The search helper persists all three values per keyword
+and sends them on the next request. A metadata-eligible item does not prove that
+the video contains a complete construction process, so the helper scans every
+page requested by `--pages`; it must not stop merely because likes and duration
+pass their thresholds. Keep the scheduled default at one paid page. After an
+inspected candidate is rejected for content, let the next run resume from the
+saved pagination context rather than resetting to the first page.
+
 Likes are an eligibility threshold, not a ranking signal: preserve TiKHub's
 comprehensive search order and select the first genuinely relevant result whose
 reported like count is greater than 100 and whose duration is at most 180
 seconds. Reject finished-product showcases, generic wool-felting clips, and
 videos that do not visibly show a pet construction process. The Search series
-is billed per request, so default to one page and stop as soon as an eligible
-reference is found. Decide whether to retry or request another page from the
-actual error, result quality, and expected cost; avoid unnecessary calls and do
-not use retries to rank eligible videos by likes.
+is billed per request, so default to one page. Stop only after visual inspection
+confirms a genuinely eligible reference, not after metadata filtering alone.
+Decide whether to retry or request another page from the actual error, result
+quality, and expected cost; avoid unnecessary calls and do not use retries to
+rank eligible videos by likes.
 Record the selected URL, author, description, like count, and duration.
 
 Download the selected video and reconstruct it faithfully. Use its complete
