@@ -4,11 +4,25 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   DEFAULT_KEYWORDS,
+  DEFAULT_REFRESH_EVERY,
   emptyState,
   validateState,
   planSearch,
   completeSearch
 } = require('./douyin-search-state');
+
+test('keeps deep pagination for many scheduled uses before refreshing the head page', () => {
+  assert.equal(DEFAULT_REFRESH_EVERY, 30);
+  let state = emptyState();
+  for (let index = 0; index < DEFAULT_REFRESH_EVERY - 1; index += 1) {
+    const plan = planSearch(state, { explicitKeyword: '羊毛毡 猫 制作' });
+    assert.equal(plan.startedFromHead, index === 0);
+    state = completeSearch(state, plan, { nextCursor: (index + 1) * 8 });
+  }
+  const refresh = planSearch(state, { explicitKeyword: '羊毛毡 猫 制作' });
+  assert.equal(refresh.startedFromHead, true);
+  assert.equal(refresh.startCursor, 0);
+});
 
 test('rotates keywords and resumes each saved cursor', () => {
   let state = emptyState();

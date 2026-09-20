@@ -40,7 +40,7 @@ const endpoint = process.env.TIKHUB_DOUYIN_SEARCH_API_URL
   || 'https://api.tikhub.io/api/v1/douyin/search/fetch_video_search_v2';
 
 function usage() {
-  console.error('Usage: search-douyin-references.js [--keyword "QUERY"] [--min-likes 100] [--max-duration 180] [--max-results 8] [--pages 1] [--refresh-every 3]');
+  console.error('Usage: search-douyin-references.js [--keyword "QUERY"] [--min-likes 100] [--max-duration 180] [--max-results 8] [--pages 1] [--refresh-every 30]');
 }
 
 function readSecret() {

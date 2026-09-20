@@ -16,7 +16,7 @@ const DEFAULT_KEYWORDS = [
   '羊毛毡 猫 制作',
   '羊毛毡 狗 制作'
 ];
-const DEFAULT_REFRESH_EVERY = 3;
+const DEFAULT_REFRESH_EVERY = 30;
 
 function emptyState() {
   return {

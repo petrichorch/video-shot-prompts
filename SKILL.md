@@ -58,7 +58,7 @@ making process rather than inventing a source:
 node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/manage-reproduction-history.js" --init
 node "${CODEX_HOME:-$HOME/.codex}/skills/video-shot-prompts/scripts/search-douyin-references.js" \
   --min-likes 100 --max-duration 180 \
-  --max-results 8 --pages 1
+  --max-results 8 --pages 3 --refresh-every 30
 ```
 
 The search script reads the metadata-only COS object
@@ -69,38 +69,45 @@ than knowingly selecting a possibly repeated source. Use
 `manage-reproduction-history.js --list` to inspect the sanitized history without
 printing credentials.
 
-For scheduled no-video runs, let the search script choose its default keyword
-instead of passing `--keyword`. It rotates through pet-felting process queries,
-resumes each query from the cursor stored in
-`buffer-media/douyin-search-state.json`, and periodically rescans that query's
-first page so newly published videos are still discovered. The default pool is
+For scheduled no-video runs, start by letting the search script choose its
+default keyword instead of passing `--keyword`. It rotates through pet-felting
+process queries and resumes each query from the cursor stored in
+`buffer-media/douyin-search-state.json`. The default pool is
 `羊毛毡 宠物 制作`, `羊毛毡 宠物定制 制作过程`, `羊毛毡 猫 制作`, and
-`羊毛毡 狗 制作`; every third use of a given query starts again at
-cursor zero by default. The state file is
+`羊毛毡 狗 制作`. A query normally continues deeply for 30 uses before one
+head-page refresh checks for newly published videos. The state file is
 metadata-only and separate from reproduction history. Pass `--keyword` only for
-a deliberate one-query search; explicit queries still retain their own cursor.
+a deliberate continuation of the keyword returned by the initial scheduled
+search; explicit queries retain that keyword's saved cursor and full pagination
+context.
 Do not delete or reset search state merely because a page contains only duplicate
 or ineligible results.
 
 TiKHub V2 pagination requires the returned `cursor`, `search_id`, and
 `backtrace` together. The search helper persists all three values per keyword
-and sends them on the next request. A metadata-eligible item does not prove that
-the video contains a complete construction process, so the helper scans every
-page requested by `--pages`; it must not stop merely because likes and duration
-pass their thresholds. Keep the scheduled default at one paid page. After an
-inspected candidate is rejected for content, let the next run resume from the
-saved pagination context rather than resetting to the first page.
+and sends them on the next request. Search in three-page batches. When a batch
+returns zero candidates and `hasMore` is true, immediately run another
+three-page batch with the returned `keyword` passed explicitly and
+`--refresh-every 30`; keep doing so rather than ending the scheduled run. When
+candidates pass metadata checks, inspect them in comprehensive-search order. If
+every candidate is rejected for content, continue the same keyword from its
+newly saved cursor. If `hasMore` becomes false, start the next default keyword
+and apply the same process. Stop only when visual inspection confirms a
+genuinely eligible reference or all default keywords have been exhausted in the
+current run. A metadata-eligible item does not prove that the video contains a
+complete construction process, so never stop pagination merely because likes
+and duration pass their thresholds.
 
 Likes are an eligibility threshold, not a ranking signal: preserve TiKHub's
 comprehensive search order and select the first genuinely relevant result whose
 reported like count is greater than 100 and whose duration is at most 180
 seconds. Reject finished-product showcases, generic wool-felting clips, and
 videos that do not visibly show a pet construction process. The Search series
-is billed per request, so default to one page. Stop only after visual inspection
-confirms a genuinely eligible reference, not after metadata filtering alone.
-Decide whether to retry or request another page from the actual error, result
-quality, and expected cost; avoid unnecessary calls and do not use retries to
-rank eligible videos by likes.
+may require many requests. Continue pagination through empty, duplicate-only,
+and ineligible batches; do not treat those as a successful stopping condition.
+Stop only after visual inspection confirms a genuinely eligible reference, not
+after metadata filtering alone. Do not use additional pages to rank eligible
+videos by likes.
 Record the selected URL, author, description, like count, and duration.
 
 Download the selected video and reconstruct it faithfully. Use its complete
