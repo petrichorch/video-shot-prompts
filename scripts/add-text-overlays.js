@@ -137,7 +137,7 @@ function render(input, output, text, font, tempDir, engine) {
   const textFile = path.join(tempDir, `${path.basename(input)}.txt`);
   fs.writeFileSync(textFile, `${prepared}\n`, 'utf8');
   if (engine === 'ffmpeg-drawtext') {
-    const y = `max(h*0.10,min(h*${yPercent}-text_h/2,h*0.80-text_h))`;
+    const y = `max(h*0.10\\,min(h*${yPercent}-text_h/2\\,h*0.80-text_h))`;
     const filter = [
       `drawtext=fontfile='${filterEscape(font)}'`,
       `textfile='${filterEscape(textFile)}'`,
